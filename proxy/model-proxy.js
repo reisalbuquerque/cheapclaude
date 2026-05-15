@@ -80,7 +80,7 @@ const MODEL_REMAP = {
         'claude-sonnet-4-6':  'mimo-v2.5',
         'claude-sonnet-4-5-20250929': 'mimo-v2.5',
         'claude-haiku-4-5-20251001':  'mimo-v2.5',
-        // cross-backend: when switching from ds/or/fw/al/km
+        // cross-backend: when switching from ds/or/fw/al/km/um
         'deepseek-v4-pro':            'mimo-v2.5-pro',
         'deepseek-v4-flash':          'mimo-v2.5',
         'deepseek/deepseek-v4-pro':   'mimo-v2.5-pro',
@@ -89,6 +89,33 @@ const MODEL_REMAP = {
         'qwen3.6-plus':               'mimo-v2.5-pro',
         'kimi-k2.6':                  'mimo-v2.5-pro',
         'kimi-k2.5':                  'mimo-v2.5',
+        'umans-coder':                'mimo-v2.5-pro',
+        'umans-kimi-k2.6':            'mimo-v2.5-pro',
+        'umans-flash':                'mimo-v2.5',
+        'umans-glm-5.1':              'mimo-v2.5-pro',
+        'umans-qwen3.6-35b-a3b':      'mimo-v2.5-pro',
+    },
+    umans: {
+        'claude-opus-4-6':    'umans-kimi-k2.6',
+        'claude-opus-4-7':    'umans-kimi-k2.6',
+        'claude-sonnet-4-6':  'umans-kimi-k2.6',
+        'claude-sonnet-4-5-20250929': 'umans-kimi-k2.6',
+        'claude-haiku-4-5-20251001':  'umans-kimi-k2.6',
+        // cross-backend: when switching from ds/or/fw/al/km/mm
+        'deepseek-v4-pro':            'umans-kimi-k2.6',
+        'deepseek-v4-flash':          'umans-kimi-k2.6',
+        'deepseek/deepseek-v4-pro':   'umans-kimi-k2.6',
+        'deepseek/deepseek-v4-flash': 'umans-kimi-k2.6',
+        'accounts/fireworks/models/deepseek-v4-pro': 'umans-kimi-k2.6',
+        'qwen3.6-plus':               'umans-kimi-k2.6',
+        'kimi-k2.6':                  'umans-kimi-k2.6',
+        'kimi-k2.5':                  'umans-kimi-k2.6',
+        'mimo-v2.5-pro':              'umans-kimi-k2.6',
+        'mimo-v2.5':                  'umans-kimi-k2.6',
+        'umans-coder':                'umans-kimi-k2.6',
+        'umans-flash':                'umans-kimi-k2.6',
+        'umans-glm-5.1':              'umans-kimi-k2.6',
+        'umans-qwen3.6-35b-a3b':      'umans-kimi-k2.6',
     },
 };
 
@@ -99,6 +126,7 @@ const PRICING_PER_M = {
     dashscope:  { input: 0.55,  output: 1.65 },
     kimi:       { input: 0.40,  output: 1.90 },
     mimo:       { input: 0.20,  output: 0.80 },
+    umans:      { input: 0.40,  output: 1.90 },
     anthropic:  { input: 3.00,  output: 15.00 },
     _single:    { input: 0.44,  output: 0.87 },
 };
@@ -438,6 +466,7 @@ export function startModelProxy({ targetUrl, apiKey, startPort = 3200, backends,
                     'deepseek', 'openrouter', 'fireworks',
                     'dashscope', 'kimi', 'mimo',
                 ];
+                // umans is a gateway — thinking support not confirmed
                 const supportsThinking = thinkingCapable.includes(state.mode);
                 if (isModelCall && !supportsThinking) {
                     try {

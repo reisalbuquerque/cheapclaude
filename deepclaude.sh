@@ -32,6 +32,7 @@ FIREWORKS_URL="https://api.fireworks.ai/inference"
 DASHSCOPE_URL="https://coding-intl.dashscope.aliyuncs.com/apps/anthropic"
 KIMI_URL="https://api.moonshot.ai/anthropic"
 MIMO_URL="https://token-plan-sgp.xiaomimimo.com/anthropic"
+UMANS_URL="https://api.code.umans.ai"
 
 BACKEND="${CHEAPCLAUDE_DEFAULT_BACKEND:-ds}"
 ACTION="launch"
@@ -115,8 +116,15 @@ resolve_backend() {
             opus="mimo-v2.5-pro"; sonnet="mimo-v2.5"
             haiku="mimo-v2.5"; subagent="mimo-v2.5"
             ;;
+        um|umans)
+            key="${UMANS_API_KEY:-}"
+            [[ -z "$key" ]] && { echo "ERROR: UMANS_API_KEY not set" >&2; exit 1; }
+            url="$UMANS_URL"
+            opus="umans-kimi-k2.6"; sonnet="umans-kimi-k2.6"
+            haiku="umans-kimi-k2.6"; subagent="umans-kimi-k2.6"
+            ;;
         anthropic) ;;
-        *) echo "ERROR: Unknown backend '$BACKEND'. Use: ds, or, fw, al, km, mm, anthropic" >&2; exit 1 ;;
+        *) echo "ERROR: Unknown backend '$BACKEND'. Use: ds, or, fw, al, km, mm, um, anthropic" >&2; exit 1 ;;
     esac
     RESOLVED_URL="$url"; RESOLVED_KEY="$key"
     RESOLVED_OPUS="$opus"; RESOLVED_SONNET="$sonnet"
@@ -143,6 +151,7 @@ show_status() {
     echo "    DASHSCOPE_API_KEY:   $(mask_key "${DASHSCOPE_API_KEY:-}")"
     echo "    KIMI_API_KEY:        $(mask_key "${KIMI_API_KEY:-}")"
     echo "    MIMO_API_KEY:        $(mask_key "${MIMO_API_KEY:-}")"
+    echo "    UMANS_API_KEY:       $(mask_key "${UMANS_API_KEY:-}")"
     echo ""
     echo "  Backends:"
     echo "    deepclaude                  # DeepSeek V4 Pro (default)"
@@ -151,6 +160,7 @@ show_status() {
     echo "    deepclaude -b al            # DashScope (Alibaba Qwen)"
     echo "    deepclaude -b km            # Kimi K2.6 (Moonshot)"
     echo "    deepclaude -b mm            # MiMo V2.5 (Xiaomi)"
+    echo "    deepclaude -b um            # Umans AI (gateway)"
     echo "    deepclaude -b anthropic     # Normal Claude Code"
     echo "    deepclaude --remote         # Remote control + DeepSeek"
     echo "    deepclaude --remote -b or   # Remote control + OpenRouter"
@@ -230,7 +240,7 @@ show_help() {
     echo "Usage: deepclaude [options] [-- claude-args...]"
     echo ""
     echo "Options:"
-    echo "  -b, --backend <ds|or|fw|al|km|mm|anthropic>  Backend (default: ds)"
+    echo "  -b, --backend <ds|or|fw|al|km|mm|um|anthropic>  Backend (default: ds)"
     echo "  -r, --remote                        Remote control mode (browser URL)"
     echo "  --status                             Show keys and backends"
     echo "  --cost                               Pricing comparison"
@@ -247,6 +257,7 @@ show_help() {
     echo "  DASHSCOPE_API_KEY     DashScope API key (required for al)"
     echo "  KIMI_API_KEY          Kimi API key (required for km)"
     echo "  MIMO_API_KEY          MiMo API key (required for mm)"
+    echo "  UMANS_API_KEY         Umans API key (required for um)"
     echo "  CHEAPCLAUDE_DEFAULT_BACKEND  Default backend (default: ds)"
 }
 
@@ -259,8 +270,9 @@ do_switch() {
         al|dashscope|aliyun) backend="dashscope" ;;
         km|kimi|moonshot)    backend="kimi" ;;
         mm|mimo|xiaomi)      backend="mimo" ;;
+        um|umans)            backend="umans" ;;
         anthropic)     backend="anthropic" ;;
-        *) echo "ERROR: Unknown backend '$backend'. Use: ds, or, fw, al, km, mm, anthropic" >&2; exit 1 ;;
+        *) echo "ERROR: Unknown backend '$backend'. Use: ds, or, fw, al, km, mm, um, anthropic" >&2; exit 1 ;;
     esac
 
     # Resolve proxy target: --port > ANTHROPIC_BASE_URL > fallback 3200
@@ -328,6 +340,7 @@ launch_claude() {
         al|dashscope|aliyun) proxy_mode="dashscope" ;;
         km|kimi|moonshot)    proxy_mode="kimi" ;;
         mm|mimo|xiaomi)      proxy_mode="mimo" ;;
+        um|umans)            proxy_mode="umans" ;;
         *)             proxy_mode="deepseek" ;;
     esac
 
@@ -386,6 +399,7 @@ launch_remote() {
         al|dashscope|aliyun) proxy_mode="dashscope" ;;
         km|kimi|moonshot)    proxy_mode="kimi" ;;
         mm|mimo|xiaomi)      proxy_mode="mimo" ;;
+        um|umans)            proxy_mode="umans" ;;
         *)             proxy_mode="deepseek" ;;
     esac
 

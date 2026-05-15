@@ -30,6 +30,7 @@ Sign up at any provider, add credit, copy your API key.
 **DashScope**: [dashscope.aliyun.com](https://dashscope.aliyun.com)
 **Kimi/Moonshot**: [moonshot.ai](https://moonshot.ai)
 **MiMo/Xiaomi**: [xiaomimimo.com](https://xiaomimimo.com)
+**Umans AI**: [app.umans.ai](https://app.umans.ai)
 
 ### 2. Set environment variables
 
@@ -74,6 +75,7 @@ deepclaude --backend fw     # Use Fireworks AI (fastest, US servers)
 deepclaude --backend al     # Use DashScope (Alibaba Qwen)
 deepclaude --backend km     # Use Kimi K2.6 (Moonshot)
 deepclaude --backend mm     # Use MiMo V2.5 (Xiaomi)
+deepclaude --backend um     # Use Umans AI (gateway, Kimi K2.6)
 deepclaude --backend anthropic  # Normal Claude Code (when you need Opus)
 deepclaude --cost           # Show pricing comparison
 deepclaude --benchmark      # Latency test across all providers
@@ -106,6 +108,7 @@ Claude Code reads these environment variables to determine where to send API cal
 | **DashScope** | `--backend al` | $0.55 | $1.65 | China | Alibaba Qwen3.6-plus |
 | **Kimi K2.6** | `--backend km` | $0.40 | $1.90 | China | Moonshot AI |
 | **MiMo V2.5** | `--backend mm` | $0.20 | $0.80 | Singapore | Xiaomi, cheapest option |
+| **Umans AI** | `--backend um` | $0.40 | $1.90 | — | Gateway, Kimi K2.6 (262K ctx) |
 | **Anthropic** | `--backend anthropic` | $3.00 | $15.00 | US | Original Claude Opus (for hard problems) |
 
 ### Setup per backend
@@ -146,6 +149,12 @@ setx MIMO_API_KEY "tp-..."               # Windows
 export MIMO_API_KEY="tp-..."             # macOS/Linux
 ```
 
+**Umans AI** (optional):
+```bash
+setx UMANS_API_KEY "sk-..."              # Windows
+export UMANS_API_KEY="sk-..."            # macOS/Linux
+```
+
 Or put all keys in a `.env` file in the deepclaude directory:
 ```
 DEEPSEEK_API_KEY=sk-...
@@ -154,6 +163,7 @@ FIREWORKS_API_KEY=fw_...
 DASHSCOPE_API_KEY=sk-sp-...
 KIMI_API_KEY=sk-...
 MIMO_API_KEY=tp-...
+UMANS_API_KEY=sk-...
 CHEAPCLAUDE_DEFAULT_BACKEND=ds
 ```
 
@@ -281,7 +291,7 @@ Then type `/deepseek`, `/anthropic`, or `/openrouter` in any Claude Code session
 ### Option 2: CLI flag
 
 ```bash
-deepclaude --switch deepseek    # or: ds, or, fw, al, km, mm, anthropic
+deepclaude --switch deepseek    # or: ds, or, fw, al, km, mm, um, anthropic
 deepclaude -s anthropic
 deepclaude --switch or -p 3201  # target specific proxy
 ```

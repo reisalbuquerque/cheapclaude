@@ -52,7 +52,7 @@ if (-not $Backend -and -not $Switch -and -not $Status -and -not $List -and -not 
 # --- Switch ---
 if ($Switch) {
     $proxyUrl = if ($Port) { "http://127.0.0.1:$Port" } elseif ($env:ANTHROPIC_BASE_URL) { $env:ANTHROPIC_BASE_URL } else { "http://127.0.0.1:3200" }
-    $backendMap = @{ ds="deepseek"; deepseek="deepseek"; or="openrouter"; openrouter="openrouter"; fw="fireworks"; fireworks="fireworks"; al="dashscope"; dashscope="dashscope"; km="kimi"; kimi="kimi"; mm="mimo"; mimo="mimo"; anthropic="anthropic" }
+    $backendMap = @{ ds="deepseek"; deepseek="deepseek"; or="openrouter"; openrouter="openrouter"; fw="fireworks"; fireworks="fireworks"; al="dashscope"; dashscope="dashscope"; km="kimi"; kimi="kimi"; mm="mimo"; mimo="mimo"; um="umans"; umans="umans"; anthropic="anthropic" }
     $targetBackend = $backendMap[$Switch.ToLower()]
     if (-not $targetBackend) { Write-Host "ERROR: Unknown backend '$Switch'. Use: ds, or, fw, al, km, mm, anthropic" -ForegroundColor Red; exit 1 }
     $body = "backend=$targetBackend"
@@ -84,6 +84,9 @@ $KimiKey = if ($env:KIMI_API_KEY) { $env:KIMI_API_KEY } else {
 }
 $MimoKey = if ($env:MIMO_API_KEY) { $env:MIMO_API_KEY } else {
     [Environment]::GetEnvironmentVariable("MIMO_API_KEY", "User")
+}
+$UmansKey = if ($env:UMANS_API_KEY) { $env:UMANS_API_KEY } else {
+    [Environment]::GetEnvironmentVariable("UMANS_API_KEY", "User")
 }
 
 $Providers = @{
@@ -131,6 +134,13 @@ $Providers = @{
         opus = "mimo-v2.5-pro"; sonnet = "mimo-v2.5"
         haiku = "mimo-v2.5"; subagent = "mimo-v2.5"
     }
+    um = @{
+        name = "Umans AI (gateway)"
+        url = "https://api.code.umans.ai"
+        key = $UmansKey; keyName = "UMANS_API_KEY"
+        opus = "umans-kimi-k2.6"; sonnet = "umans-kimi-k2.6"
+        haiku = "umans-kimi-k2.6"; subagent = "umans-kimi-k2.6"
+    }
 }
 
 function Get-KeyDisplay($k) {
@@ -149,6 +159,7 @@ if ($Status) {
     Write-Host "    DASHSCOPE_API_KEY:   $(Get-KeyDisplay $DashScopeKey)"
     Write-Host "    KIMI_API_KEY:        $(Get-KeyDisplay $KimiKey)"
     Write-Host "    MIMO_API_KEY:        $(Get-KeyDisplay $MimoKey)"
+    Write-Host "    UMANS_API_KEY:       $(Get-KeyDisplay $UmansKey)"
     Write-Host "`n  Backends:" -ForegroundColor Yellow
     Write-Host "    deepclaude              # DeepSeek V4 Pro (default)"
     Write-Host "    deepclaude -b or        # OpenRouter (cheapest)"
@@ -156,6 +167,7 @@ if ($Status) {
     Write-Host "    deepclaude -b al        # DashScope (Alibaba Qwen)"
     Write-Host "    deepclaude -b km        # Kimi K2.6 (Moonshot)"
     Write-Host "    deepclaude -b mm        # MiMo V2.5 (Xiaomi)"
+    Write-Host "    deepclaude -b um        # Umans AI (gateway)"
     Write-Host "    deepclaude -b anthropic # Normal Claude Code"
     Write-Host ""
     exit 0
@@ -226,7 +238,7 @@ if ($Help) {
     Write-Host "Usage: deepclaude [-b backend] [--status] [--list] [--cost] [--benchmark]"
     Write-Host "       deepclaude --switch <backend> [--port <n>]"
     Write-Host ""
-    Write-Host "  -b, --backend   ds (default), or, fw, al, km, mm, anthropic"
+    Write-Host "  -b, --backend   ds (default), or, fw, al, km, mm, um, anthropic"
     Write-Host "  --status        Show keys and backends"
     Write-Host "  --list, -l        List active proxies"
     Write-Host "  --cost          Pricing comparison"

@@ -10,6 +10,7 @@ const BACKEND_DEFS = {
     dashscope: { url: 'https://coding-intl.dashscope.aliyuncs.com/apps/anthropic', keyEnv: 'DASHSCOPE_API_KEY' },
     kimi: { url: 'https://api.moonshot.ai/anthropic', keyEnv: 'KIMI_API_KEY' },
     mimo: { url: 'https://token-plan-sgp.xiaomimimo.com/anthropic', keyEnv: 'MIMO_API_KEY' },
+    umans: { url: 'https://api.code.umans.ai', keyEnv: 'UMANS_API_KEY' },
 };
 
 // Legacy mode: start-proxy.js <targetUrl> <apiKey> [modeName] (used by deepclaude.sh/ps1)
