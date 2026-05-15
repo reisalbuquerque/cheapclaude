@@ -4,17 +4,40 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Load .env file if present
+if [[ -f ".env" ]]; then
+    set -a
+    source ".env"
+    set +a
+fi
+
+# SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+## by chatgpt
+SOURCE="${BASH_SOURCE[0]}"
+
+while [ -L "$SOURCE" ]; do
+  DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+
+SCRIPT_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+## end chapgpt
 
 # --- Config ---
 DEEPSEEK_URL="https://api.deepseek.com/anthropic"
 OPENROUTER_URL="https://openrouter.ai/api"
 FIREWORKS_URL="https://api.fireworks.ai/inference"
+DASHSCOPE_URL="https://coding-intl.dashscope.aliyuncs.com/apps/anthropic"
+KIMI_URL="https://api.moonshot.ai/anthropic"
+MIMO_URL="https://token-plan-sgp.xiaomimimo.com/anthropic"
 
 BACKEND="${CHEAPCLAUDE_DEFAULT_BACKEND:-ds}"
 ACTION="launch"
 SWITCH_BACKEND=""
 PROXY_PID=""
+SWITCH_PORT=""
 
 # --- Parse args ---
 while [[ $# -gt 0 ]]; do
@@ -25,6 +48,8 @@ while [[ $# -gt 0 ]]; do
         --status)     ACTION="status"; shift ;;
         --cost)       ACTION="cost"; shift ;;
         --benchmark)  ACTION="benchmark"; shift ;;
+        --list|-l)    ACTION="list"; shift ;;
+        --port|-p)  SWITCH_PORT="$2"; shift 2 ;;
         --help|-h)    ACTION="help"; shift ;;
         *)            break ;;
     esac
@@ -69,8 +94,29 @@ resolve_backend() {
             haiku="accounts/fireworks/models/deepseek-v4-pro"
             subagent="accounts/fireworks/models/deepseek-v4-pro"
             ;;
+        al|dashscope|aliyun)
+            key="${DASHSCOPE_API_KEY:-}"
+            [[ -z "$key" ]] && { echo "ERROR: DASHSCOPE_API_KEY not set" >&2; exit 1; }
+            url="$DASHSCOPE_URL"
+            opus="qwen3.6-plus"; sonnet="qwen3.6-plus"
+            haiku="qwen3.6-plus"; subagent="qwen3.6-plus"
+            ;;
+        km|kimi|moonshot)
+            key="${KIMI_API_KEY:-}"
+            [[ -z "$key" ]] && { echo "ERROR: KIMI_API_KEY not set" >&2; exit 1; }
+            url="$KIMI_URL"
+            opus="kimi-k2.6"; sonnet="kimi-k2.6"
+            haiku="kimi-k2.6"; subagent="kimi-k2.6"
+            ;;
+        mm|mimo|xiaomi)
+            key="${MIMO_API_KEY:-}"
+            [[ -z "$key" ]] && { echo "ERROR: MIMO_API_KEY not set" >&2; exit 1; }
+            url="$MIMO_URL"
+            opus="mimo-v2.5-pro"; sonnet="mimo-v2.5"
+            haiku="mimo-v2.5"; subagent="mimo-v2.5"
+            ;;
         anthropic) ;;
-        *) echo "ERROR: Unknown backend '$BACKEND'. Use: ds, or, fw, anthropic" >&2; exit 1 ;;
+        *) echo "ERROR: Unknown backend '$BACKEND'. Use: ds, or, fw, al, km, mm, anthropic" >&2; exit 1 ;;
     esac
     RESOLVED_URL="$url"; RESOLVED_KEY="$key"
     RESOLVED_OPUS="$opus"; RESOLVED_SONNET="$sonnet"
@@ -94,11 +140,17 @@ show_status() {
     echo "    DEEPSEEK_API_KEY:    $(mask_key "${DEEPSEEK_API_KEY:-}")"
     echo "    OPENROUTER_API_KEY:  $(mask_key "${OPENROUTER_API_KEY:-}")"
     echo "    FIREWORKS_API_KEY:   $(mask_key "${FIREWORKS_API_KEY:-}")"
+    echo "    DASHSCOPE_API_KEY:   $(mask_key "${DASHSCOPE_API_KEY:-}")"
+    echo "    KIMI_API_KEY:        $(mask_key "${KIMI_API_KEY:-}")"
+    echo "    MIMO_API_KEY:        $(mask_key "${MIMO_API_KEY:-}")"
     echo ""
     echo "  Backends:"
     echo "    deepclaude                  # DeepSeek V4 Pro (default)"
     echo "    deepclaude -b or            # OpenRouter (cheapest)"
     echo "    deepclaude -b fw            # Fireworks AI (fastest)"
+    echo "    deepclaude -b al            # DashScope (Alibaba Qwen)"
+    echo "    deepclaude -b km            # Kimi K2.6 (Moonshot)"
+    echo "    deepclaude -b mm            # MiMo V2.5 (Xiaomi)"
     echo "    deepclaude -b anthropic     # Normal Claude Code"
     echo "    deepclaude --remote         # Remote control + DeepSeek"
     echo "    deepclaude --remote -b or   # Remote control + OpenRouter"
@@ -110,6 +162,48 @@ show_status() {
         echo "    $proxy_status"
     else
         echo "  Proxy: not running"
+    fi
+    echo ""
+}
+
+show_list() {
+    echo ""
+    echo "  Active deepclaude Proxies"
+    echo "  =========================="
+    echo ""
+
+    local tmp_dir="${TMPDIR:-/tmp}"
+    local found=0
+    for state_file in "$tmp_dir"/deepclaude-proxy-*.json; do
+        [[ -f "$state_file" ]] || continue
+
+        local pid port mode started
+        pid=$(jq -r '.pid // empty' "$state_file" 2>/dev/null) || continue
+        port=$(jq -r '.port // empty' "$state_file" 2>/dev/null) || continue
+        mode=$(jq -r '.mode // "?"' "$state_file" 2>/dev/null)
+        started=$(jq -r '.started // "?"' "$state_file" 2>/dev/null)
+
+        # Check if process is still alive
+        if ! kill -0 "$pid" 2>/dev/null; then
+            rm -f "$state_file"
+            continue
+        fi
+
+        found=1
+        local status="alive"
+        local health
+        health=$(curl -s "http://127.0.0.1:$port/_proxy/status" 2>/dev/null) || health=""
+        if [[ -n "$health" ]]; then
+            local req_count
+            req_count=$(echo "$health" | jq -r '.requests // "?"' 2>/dev/null)
+            echo "  :$port  pid=$pid  mode=$mode  requests=$req_count"
+        else
+            echo "  :$port  pid=$pid  mode=$mode  (unreachable)"
+        fi
+    done
+
+    if [[ $found -eq 0 ]]; then
+        echo "  No active proxies found."
     fi
     echo ""
 }
@@ -136,18 +230,23 @@ show_help() {
     echo "Usage: deepclaude [options] [-- claude-args...]"
     echo ""
     echo "Options:"
-    echo "  -b, --backend <ds|or|fw|anthropic>  Backend (default: ds)"
+    echo "  -b, --backend <ds|or|fw|al|km|mm|anthropic>  Backend (default: ds)"
     echo "  -r, --remote                        Remote control mode (browser URL)"
     echo "  --status                             Show keys and backends"
     echo "  --cost                               Pricing comparison"
     echo "  --benchmark                          Latency test"
     echo "  -s, --switch <backend>               Switch proxy mid-session"
+    echo "  -p, --port <n>                       Proxy port for --switch"
+    echo "  --list, -l                         List active proxies"
     echo "  -h, --help                           This help"
     echo ""
     echo "Environment variables:"
     echo "  DEEPSEEK_API_KEY      DeepSeek API key (required for ds)"
     echo "  OPENROUTER_API_KEY    OpenRouter API key (required for or)"
     echo "  FIREWORKS_API_KEY     Fireworks API key (required for fw)"
+    echo "  DASHSCOPE_API_KEY     DashScope API key (required for al)"
+    echo "  KIMI_API_KEY          Kimi API key (required for km)"
+    echo "  MIMO_API_KEY          MiMo API key (required for mm)"
     echo "  CHEAPCLAUDE_DEFAULT_BACKEND  Default backend (default: ds)"
 }
 
@@ -157,12 +256,26 @@ do_switch() {
         ds|deepseek)   backend="deepseek" ;;
         or|openrouter) backend="openrouter" ;;
         fw|fireworks)  backend="fireworks" ;;
+        al|dashscope|aliyun) backend="dashscope" ;;
+        km|kimi|moonshot)    backend="kimi" ;;
+        mm|mimo|xiaomi)      backend="mimo" ;;
         anthropic)     backend="anthropic" ;;
-        *) echo "ERROR: Unknown backend '$backend'. Use: ds, or, fw, anthropic" >&2; exit 1 ;;
+        *) echo "ERROR: Unknown backend '$backend'. Use: ds, or, fw, al, km, mm, anthropic" >&2; exit 1 ;;
     esac
+
+    # Resolve proxy target: --port > ANTHROPIC_BASE_URL > fallback 3200
+    local proxy_url
+    if [[ -n "$SWITCH_PORT" ]]; then
+        proxy_url="http://127.0.0.1:$SWITCH_PORT"
+    elif [[ -n "${ANTHROPIC_BASE_URL:-}" ]]; then
+        proxy_url="$ANTHROPIC_BASE_URL"
+    else
+        proxy_url="http://127.0.0.1:3200"
+    fi
+
     local resp
-    resp=$(curl -sX POST http://127.0.0.1:3200/_proxy/mode -d "backend=$backend" 2>/dev/null) || {
-        echo "  Proxy not running. Start with: deepclaude" >&2; exit 1
+    resp=$(curl -sX POST "$proxy_url/_proxy/mode" -d "backend=$backend" 2>/dev/null) || {
+        echo "  Proxy not running at $proxy_url" >&2; exit 1
     }
     echo "  $resp"
 }
@@ -207,17 +320,50 @@ launch_claude() {
 
     resolve_backend
 
-    echo "  Launching Claude Code via $BACKEND..."
-    echo "  Endpoint: $RESOLVED_URL"
-    echo "  Model: $RESOLVED_OPUS (main) + $RESOLVED_HAIKU (subagents)"
+    local proxy_mode
+    case "$BACKEND" in
+        ds|deepseek)   proxy_mode="deepseek" ;;
+        or|openrouter) proxy_mode="openrouter" ;;
+        fw|fireworks)  proxy_mode="fireworks" ;;
+        al|dashscope|aliyun) proxy_mode="dashscope" ;;
+        km|kimi|moonshot)    proxy_mode="kimi" ;;
+        mm|mimo|xiaomi)      proxy_mode="mimo" ;;
+        *)             proxy_mode="deepseek" ;;
+    esac
+
+    echo "  Starting model proxy for $BACKEND (mode: $proxy_mode)..."
+
+    local port_file
+    port_file=$(mktemp)
+    node "$SCRIPT_DIR/proxy/start-proxy.js" "$RESOLVED_URL" "$RESOLVED_KEY" "$proxy_mode" > "$port_file" &
+    PROXY_PID=$!
+
+    local tries=0
+    while [[ ! -s "$port_file" ]] && [[ $tries -lt 30 ]]; do
+        sleep 0.2
+        tries=$((tries + 1))
+    done
+
+    if [[ ! -s "$port_file" ]]; then
+        echo "ERROR: Proxy failed to start" >&2
+        rm -f "$port_file"
+        exit 1
+    fi
+
+    local proxy_port
+    proxy_port=$(head -1 "$port_file")
+    rm -f "$port_file"
+
+    echo "  Proxy on :$proxy_port -> $RESOLVED_URL"
+    echo "  Launching Claude Code via proxy..."
     echo ""
 
-    export ANTHROPIC_BASE_URL="$RESOLVED_URL"
-    export ANTHROPIC_AUTH_TOKEN="$RESOLVED_KEY"
+    export ANTHROPIC_BASE_URL="http://127.0.0.1:$proxy_port"
+    export ANTHROPIC_AUTH_TOKEN="proxy"
     set_model_env
     unset ANTHROPIC_API_KEY
 
-    exec claude "$@"
+    claude "$@"
 }
 
 launch_remote() {
@@ -227,16 +373,27 @@ launch_remote() {
         unset ANTHROPIC_DEFAULT_OPUS_MODEL ANTHROPIC_DEFAULT_SONNET_MODEL
         unset ANTHROPIC_DEFAULT_HAIKU_MODEL CLAUDE_CODE_SUBAGENT_MODEL
         unset CLAUDE_CODE_EFFORT_LEVEL ANTHROPIC_API_KEY
-        exec claude remote-control "$@"
+        claude remote-control "$@"
     fi
 
     resolve_backend
 
-    echo "  Starting model proxy for $BACKEND..."
+    local proxy_mode
+    case "$BACKEND" in
+        ds|deepseek)   proxy_mode="deepseek" ;;
+        or|openrouter) proxy_mode="openrouter" ;;
+        fw|fireworks)  proxy_mode="fireworks" ;;
+        al|dashscope|aliyun) proxy_mode="dashscope" ;;
+        km|kimi|moonshot)    proxy_mode="kimi" ;;
+        mm|mimo|xiaomi)      proxy_mode="mimo" ;;
+        *)             proxy_mode="deepseek" ;;
+    esac
+
+    echo "  Starting model proxy for $BACKEND (mode: $proxy_mode)..."
 
     local port_file
     port_file=$(mktemp)
-    node "$SCRIPT_DIR/proxy/start-proxy.js" "$RESOLVED_URL" "$RESOLVED_KEY" > "$port_file" &
+    node "$SCRIPT_DIR/proxy/start-proxy.js" "$RESOLVED_URL" "$RESOLVED_KEY" "$proxy_mode" > "$port_file" &
     PROXY_PID=$!
 
     local tries=0
@@ -269,6 +426,7 @@ launch_remote() {
 # --- Main ---
 case "$ACTION" in
     status)    show_status ;;
+    list)      show_list ;;
     cost)      show_cost ;;
     benchmark) run_benchmark ;;
     help)      show_help ;;

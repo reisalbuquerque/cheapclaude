@@ -1,3 +1,4 @@
+import { writeFileSync } from 'fs';
 import { createServer } from 'http';
 import { request as httpsRequest } from 'https';
 import { URL } from 'url';
@@ -14,6 +15,11 @@ const MODEL_REMAP = {
         'claude-sonnet-4-6':  'deepseek-v4-flash',
         'claude-sonnet-4-5-20250929': 'deepseek-v4-flash',
         'claude-haiku-4-5-20251001':  'deepseek-v4-flash',
+        // cross-backend: when switching from or/fw/al
+        'deepseek/deepseek-v4-pro':   'deepseek-v4-pro',
+        'deepseek/deepseek-v4-flash': 'deepseek-v4-flash',
+        'accounts/fireworks/models/deepseek-v4-pro': 'deepseek-v4-pro',
+        'qwen3.6-plus':               'deepseek-v4-pro',
     },
     openrouter: {
         'claude-opus-4-6':    'deepseek/deepseek-v4-pro',
@@ -21,6 +27,68 @@ const MODEL_REMAP = {
         'claude-sonnet-4-6':  'deepseek/deepseek-v4-flash',
         'claude-sonnet-4-5-20250929': 'deepseek/deepseek-v4-flash',
         'claude-haiku-4-5-20251001':  'deepseek/deepseek-v4-flash',
+        // cross-backend: when switching from ds/fw/al
+        'deepseek-v4-pro':            'deepseek/deepseek-v4-pro',
+        'deepseek-v4-flash':          'deepseek/deepseek-v4-flash',
+        'accounts/fireworks/models/deepseek-v4-pro': 'deepseek/deepseek-v4-pro',
+        'qwen3.6-plus':               'deepseek/deepseek-v4-pro',
+    },
+    fireworks: {
+        'claude-opus-4-6':    'accounts/fireworks/models/deepseek-v4-pro',
+        'claude-opus-4-7':    'accounts/fireworks/models/deepseek-v4-pro',
+        'claude-sonnet-4-6':  'accounts/fireworks/models/deepseek-v4-pro',
+        'claude-sonnet-4-5-20250929': 'accounts/fireworks/models/deepseek-v4-pro',
+        'claude-haiku-4-5-20251001':  'accounts/fireworks/models/deepseek-v4-pro',
+        // cross-backend: when switching from ds/or/al
+        'deepseek-v4-pro':            'accounts/fireworks/models/deepseek-v4-pro',
+        'deepseek-v4-flash':          'accounts/fireworks/models/deepseek-v4-pro',
+        'deepseek/deepseek-v4-pro':   'accounts/fireworks/models/deepseek-v4-pro',
+        'deepseek/deepseek-v4-flash': 'accounts/fireworks/models/deepseek-v4-pro',
+        'qwen3.6-plus':               'accounts/fireworks/models/deepseek-v4-pro',
+    },
+    dashscope: {
+        'claude-opus-4-6':    'qwen3.6-plus',
+        'claude-opus-4-7':    'qwen3.6-plus',
+        'claude-sonnet-4-6':  'qwen3.6-plus',
+        'claude-sonnet-4-5-20250929': 'qwen3.6-plus',
+        'claude-haiku-4-5-20251001':  'qwen3.6-plus',
+        // cross-backend: when switching from ds/or/fw
+        'deepseek-v4-pro':            'qwen3.6-plus',
+        'deepseek-v4-flash':          'qwen3.6-plus',
+        'deepseek/deepseek-v4-pro':   'qwen3.6-plus',
+        'deepseek/deepseek-v4-flash': 'qwen3.6-plus',
+        'accounts/fireworks/models/deepseek-v4-pro': 'qwen3.6-plus',
+        'kimi-k2.6':               'qwen3.6-plus',
+    },
+    kimi: {
+        'claude-opus-4-6':    'kimi-k2.6',
+        'claude-opus-4-7':    'kimi-k2.6',
+        'claude-sonnet-4-6':  'kimi-k2.6',
+        'claude-sonnet-4-5-20250929': 'kimi-k2.6',
+        'claude-haiku-4-5-20251001':  'kimi-k2.6',
+        // cross-backend: when switching from ds/or/fw/al
+        'deepseek-v4-pro':            'kimi-k2.6',
+        'deepseek-v4-flash':          'kimi-k2.6',
+        'deepseek/deepseek-v4-pro':   'kimi-k2.6',
+        'deepseek/deepseek-v4-flash': 'kimi-k2.6',
+        'accounts/fireworks/models/deepseek-v4-pro': 'kimi-k2.6',
+        'qwen3.6-plus':               'kimi-k2.6',
+    },
+    mimo: {
+        'claude-opus-4-6':    'mimo-v2.5-pro',
+        'claude-opus-4-7':    'mimo-v2.5-pro',
+        'claude-sonnet-4-6':  'mimo-v2.5',
+        'claude-sonnet-4-5-20250929': 'mimo-v2.5',
+        'claude-haiku-4-5-20251001':  'mimo-v2.5',
+        // cross-backend: when switching from ds/or/fw/al/km
+        'deepseek-v4-pro':            'mimo-v2.5-pro',
+        'deepseek-v4-flash':          'mimo-v2.5',
+        'deepseek/deepseek-v4-pro':   'mimo-v2.5-pro',
+        'deepseek/deepseek-v4-flash': 'mimo-v2.5',
+        'accounts/fireworks/models/deepseek-v4-pro': 'mimo-v2.5-pro',
+        'qwen3.6-plus':               'mimo-v2.5-pro',
+        'kimi-k2.6':                  'mimo-v2.5-pro',
+        'kimi-k2.5':                  'mimo-v2.5',
     },
 };
 
@@ -28,6 +96,9 @@ const PRICING_PER_M = {
     deepseek:   { input: 0.44,  output: 0.87 },
     openrouter: { input: 0.44,  output: 0.87 },
     fireworks:  { input: 1.74,  output: 3.48 },
+    dashscope:  { input: 0.55,  output: 1.65 },
+    kimi:       { input: 0.40,  output: 1.90 },
+    mimo:       { input: 0.20,  output: 0.80 },
     anthropic:  { input: 3.00,  output: 15.00 },
     _single:    { input: 0.44,  output: 0.87 },
 };
@@ -122,7 +193,7 @@ function stripUnsignedThinkingBlocks(body) {
     }
 }
 
-export function startModelProxy({ targetUrl, apiKey, startPort = 3200, backends, defaultMode }) {
+export function startModelProxy({ targetUrl, apiKey, startPort = 3200, backends, defaultMode, stateFile }) {
     return new Promise((resolve, reject) => {
         const initialTarget = new URL(targetUrl);
         const initialBearer = targetUrl.includes('openrouter') || targetUrl.includes('fireworks');
@@ -133,7 +204,7 @@ export function startModelProxy({ targetUrl, apiKey, startPort = 3200, backends,
                 allBackends[name] = {
                     target: new URL(cfg.url),
                     apiKey: cfg.apiKey,
-                    useBearer: cfg.url.includes('openrouter') || cfg.url.includes('fireworks'),
+                    useBearer: cfg.url.includes('openrouter') || cfg.url.includes('fireworks') || cfg.url.includes('dashscope') || cfg.url.includes('moonshot'),
                 };
             }
         }
@@ -186,6 +257,18 @@ export function startModelProxy({ targetUrl, apiKey, startPort = 3200, backends,
             };
         }
 
+        function updateStateFile() {
+            if (!stateFile) return;
+            try {
+                writeFileSync(stateFile, JSON.stringify({
+                    pid: process.pid,
+                    port: server.address()?.port || 0,
+                    mode: state.mode,
+                    started: t0Global,
+                }));
+            } catch {}
+        }
+
         function switchMode(name) {
             if (name === 'anthropic') {
                 const prev = state.mode;
@@ -193,6 +276,7 @@ export function startModelProxy({ targetUrl, apiKey, startPort = 3200, backends,
                 state.target = new URL(ANTHROPIC_FALLBACK);
                 state.apiKey = null;
                 state.useBearer = false;
+                updateStateFile();
                 return { mode: 'anthropic', previous: prev };
             }
             const b = allBackends[name];
@@ -204,6 +288,7 @@ export function startModelProxy({ targetUrl, apiKey, startPort = 3200, backends,
             state.apiKey = b.apiKey;
             state.useBearer = b.useBearer;
             state.hadNonAnthropicSession = true;
+            updateStateFile();
             return { mode: name, previous: prev };
         }
 
@@ -345,7 +430,11 @@ export function startModelProxy({ targetUrl, apiKey, startPort = 3200, backends,
                         body = Buffer.from(JSON.stringify(parsed));
                     } catch { /* pass through */ }
                 }
-                if (isModelCall) {
+                // For non-Anthropic backends that support thinking (e.g. DeepSeek V4),
+                // do NOT strip thinking blocks — they must be passed back to the API.
+                // Only strip for backends that don't support thinking.
+                const supportsThinking = state.mode === 'deepseek';
+                if (isModelCall && !supportsThinking) {
                     try {
                         const parsed = JSON.parse(body);
                         stripAllThinkingBlocks(parsed);
@@ -433,7 +522,7 @@ export function startModelProxy({ targetUrl, apiKey, startPort = 3200, backends,
             });
             server.listen(port, '127.0.0.1', () => {
                 const actualPort = server.address().port;
-                console.log(`[MODEL-PROXY] Listening on 127.0.0.1:${actualPort} → ${targetUrl} (mode: ${state.mode})`);
+                console.error(`[MODEL-PROXY] Listening on 127.0.0.1:${actualPort} → ${targetUrl} (mode: ${state.mode})`);
                 resolve({ port: actualPort, close: () => server.close(), switchMode });
             });
         }

@@ -1,6 +1,6 @@
 # deepclaude
 
-Use Claude Code's autonomous agent loop with **DeepSeek V4 Pro**, **OpenRouter**, or any Anthropic-compatible backend. Same UX, 17x cheaper.
+Use Claude Code's autonomous agent loop with **DeepSeek V4 Pro**, **OpenRouter**, **DashScope**, **Kimi**, **MiMo**, or any Anthropic-compatible backend. Same UX, up to 50x cheaper.
 
 ![Remote control running DeepSeek V4 Pro in the browser](screenshots/remote-control-deepseek.png)
 
@@ -20,11 +20,20 @@ Everything works: file reading, editing, bash execution, subagent spawning, auto
 
 ## Quick start (2 minutes)
 
-### 1. Get a DeepSeek API key
+### 1. Get an API key
 
-Sign up at [platform.deepseek.com](https://platform.deepseek.com), add $5 credit, copy your API key.
+Sign up at any provider, add credit, copy your API key.
+
+**DeepSeek** (default): [platform.deepseek.com](https://platform.deepseek.com)
+**OpenRouter**: [openrouter.ai](https://openrouter.ai)
+**Fireworks AI**: [fireworks.ai](https://fireworks.ai)
+**DashScope**: [dashscope.aliyun.com](https://dashscope.aliyun.com)
+**Kimi/Moonshot**: [moonshot.ai](https://moonshot.ai)
+**MiMo/Xiaomi**: [xiaomimimo.com](https://xiaomimimo.com)
 
 ### 2. Set environment variables
+
+Or use a `.env` file in the deepclaude directory (loaded automatically).
 
 **Windows (PowerShell):**
 ```powershell
@@ -59,12 +68,17 @@ sudo ln -s "$(pwd)/deepclaude.sh" /usr/local/bin/deepclaude
 ```bash
 deepclaude                  # Launch Claude Code with DeepSeek V4 Pro
 deepclaude --status         # Show available backends and keys
+deepclaude --list           # List active proxy instances
 deepclaude --backend or     # Use OpenRouter (cheapest, $0.44/M input)
 deepclaude --backend fw     # Use Fireworks AI (fastest, US servers)
+deepclaude --backend al     # Use DashScope (Alibaba Qwen)
+deepclaude --backend km     # Use Kimi K2.6 (Moonshot)
+deepclaude --backend mm     # Use MiMo V2.5 (Xiaomi)
 deepclaude --backend anthropic  # Normal Claude Code (when you need Opus)
 deepclaude --cost           # Show pricing comparison
 deepclaude --benchmark      # Latency test across all providers
 deepclaude --switch ds      # Switch backend mid-session (no restart)
+deepclaude --switch or -p 3201  # Target specific proxy by port
 ```
 
 ## How it works
@@ -89,6 +103,9 @@ Claude Code reads these environment variables to determine where to send API cal
 | **DeepSeek** (default) | `--backend ds` | $0.44 | $0.87 | China | Auto context caching (120x cheaper on repeat turns) |
 | **OpenRouter** | `--backend or` | $0.44 | $0.87 | US | Cheapest, lowest latency from US/EU |
 | **Fireworks AI** | `--backend fw` | $1.74 | $3.48 | US | Fastest inference |
+| **DashScope** | `--backend al` | $0.55 | $1.65 | China | Alibaba Qwen3.6-plus |
+| **Kimi K2.6** | `--backend km` | $0.40 | $1.90 | China | Moonshot AI |
+| **MiMo V2.5** | `--backend mm` | $0.20 | $0.80 | Singapore | Xiaomi, cheapest option |
 | **Anthropic** | `--backend anthropic` | $3.00 | $15.00 | US | Original Claude Opus (for hard problems) |
 
 ### Setup per backend
@@ -109,6 +126,35 @@ export OPENROUTER_API_KEY="sk-or-..."    # macOS/Linux
 ```bash
 setx FIREWORKS_API_KEY "fw_..."          # Windows
 export FIREWORKS_API_KEY="fw_..."        # macOS/Linux
+```
+
+**DashScope** (optional):
+```bash
+setx DASHSCOPE_API_KEY "sk-sp-..."       # Windows
+export DASHSCOPE_API_KEY="sk-sp-..."     # macOS/Linux
+```
+
+**Kimi K2.6** (optional):
+```bash
+setx KIMI_API_KEY "sk-..."               # Windows
+export KIMI_API_KEY="sk-..."             # macOS/Linux
+```
+
+**MiMo V2.5** (optional):
+```bash
+setx MIMO_API_KEY "tp-..."               # Windows
+export MIMO_API_KEY="tp-..."             # macOS/Linux
+```
+
+Or put all keys in a `.env` file in the deepclaude directory:
+```
+DEEPSEEK_API_KEY=sk-...
+OPENROUTER_API_KEY=sk-or-...
+FIREWORKS_API_KEY=fw_...
+DASHSCOPE_API_KEY=sk-sp-...
+KIMI_API_KEY=sk-...
+MIMO_API_KEY=tp-...
+CHEAPCLAUDE_DEFAULT_BACKEND=ds
 ```
 
 ## Cost comparison
@@ -145,9 +191,38 @@ DeepSeek's automatic context caching makes agent loops extremely cheap - after t
 - **Routine tasks** (80% of work): DeepSeek V4 Pro is comparable to Claude Opus
 - **Complex reasoning** (20%): Claude Opus is stronger - switch with `--backend anthropic`
 
+## Multi-session proxy management
+
+Multiple deepclaude instances can run simultaneously without port conflicts. Each proxy auto-allocates an available port (3200-3220) and registers a state file in `$TMPDIR` (macOS/Linux) or `$TEMP` (Windows).
+
+### List active proxies
+
+```bash
+deepclaude --list        # or: -l
+```
+
+Output:
+```
+  Active deepclaude Proxies
+  ==========================
+
+  :3200  pid=12345  mode=deepseek  requests=12
+  :3201  pid=12346  mode=openrouter  requests=4
+```
+
+Shows port, PID, current backend mode, and request count. Stale state files from dead processes are cleaned automatically.
+
+### Target a specific proxy
+
+```bash
+deepclaude --switch ds -p 3201   # or: -s ds --port 3201
+```
+
+Without `--port`, the CLI checks `ANTHROPIC_BASE_URL` first, then falls back to `3200`.
+
 ## Live switching (no restart)
 
-Switch between Anthropic and DeepSeek **mid-session** - from inside Claude Code itself. No restart, no terminal commands. Just type a slash command.
+Switch between backends **mid-session** - from inside Claude Code itself or from a separate terminal. No restart. Just type a slash command or use the CLI.
 
 **In Claude Code terminal:**
 
@@ -159,7 +234,11 @@ Switch between Anthropic and DeepSeek **mid-session** - from inside Claude Code 
 
 ### How it works
 
-The proxy runs on `localhost:3200` and intercepts all API calls. A control endpoint (`/_proxy/mode`) lets you switch the active backend instantly:
+The proxy runs on `localhost` and intercepts all API calls. A control endpoint (`/_proxy/mode`) lets you switch the active backend instantly. The proxy handles:
+
+- **Model name remapping**: Claude Opus → backend-equivalent model automatically
+- **Thinking block stripping**: Foreign thinking blocks removed when switching back to Anthropic
+- **Auth header swapping**: Bearer vs x-api-key per backend
 
 ```
 Claude Code -> localhost:3200 (proxy)
@@ -168,7 +247,7 @@ Claude Code -> localhost:3200 (proxy)
                  +-- /_proxy/status GET -> current backend + uptime
                  +-- /_proxy/cost GET -> token usage + cost savings
                  |
-                 +-- /v1/messages -> active backend (DeepSeek/OpenRouter/Anthropic)
+                 +-- /v1/messages -> active backend (DeepSeek/OpenRouter/etc)
                  +-- everything else -> Anthropic (passthrough)
 ```
 
@@ -202,8 +281,9 @@ Then type `/deepseek`, `/anthropic`, or `/openrouter` in any Claude Code session
 ### Option 2: CLI flag
 
 ```bash
-deepclaude --switch deepseek    # or: ds, or, fw, anthropic
+deepclaude --switch deepseek    # or: ds, or, fw, al, km, mm, anthropic
 deepclaude -s anthropic
+deepclaude --switch or -p 3201  # target specific proxy
 ```
 
 ### Option 3: VS Code keyboard shortcuts
@@ -261,6 +341,34 @@ Returns:
   "anthropic_equivalent": 1.05,
   "savings": 0.9559
 }
+```
+
+## Standalone proxy
+
+Run the proxy independently (useful for multiple sessions or custom setups):
+
+```bash
+node proxy/start-proxy.js --mode deepseek --port 3201
+```
+
+Or programmatically:
+```javascript
+import { startModelProxy } from './model-proxy.js';
+
+const proxy = await startModelProxy({
+    targetUrl: 'https://api.deepseek.com/anthropic',
+    apiKey: process.env.DEEPSEEK_API_KEY,
+});
+
+console.log(`Proxy on port ${proxy.port}`);
+
+// Set env vars for claude:
+// ANTHROPIC_BASE_URL=http://127.0.0.1:${proxy.port}
+// ANTHROPIC_DEFAULT_OPUS_MODEL=deepseek-v4-pro
+// (do NOT set ANTHROPIC_AUTH_TOKEN — OAuth handles bridge auth)
+
+// When done:
+proxy.close();
 ```
 
 ## VS Code / Cursor integration
