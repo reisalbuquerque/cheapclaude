@@ -430,10 +430,15 @@ export function startModelProxy({ targetUrl, apiKey, startPort = 3200, backends,
                         body = Buffer.from(JSON.stringify(parsed));
                     } catch { /* pass through */ }
                 }
-                // For non-Anthropic backends that support thinking (e.g. DeepSeek V4),
-                // do NOT strip thinking blocks — they must be passed back to the API.
-                // Only strip for backends that don't support thinking.
-                const supportsThinking = state.mode === 'deepseek';
+                // Thinking-capable backends: all non-Anthropic modes.
+                // DeepSeek V4 Pro, OpenRouter (DeepSeek), Fireworks (DeepSeek),
+                // DashScope (Qwen3.6), Kimi K2.6, and MiMo V2.5 all accept
+                // thinking blocks in the conversation history.
+                const thinkingCapable = [
+                    'deepseek', 'openrouter', 'fireworks',
+                    'dashscope', 'kimi', 'mimo',
+                ];
+                const supportsThinking = thinkingCapable.includes(state.mode);
                 if (isModelCall && !supportsThinking) {
                     try {
                         const parsed = JSON.parse(body);
