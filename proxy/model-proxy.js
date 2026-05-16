@@ -8,115 +8,16 @@ const ANTHROPIC_FALLBACK = 'https://api.anthropic.com';
 const MODEL_PATHS = ['/v1/messages'];
 const REQUEST_TIMEOUT_MS = 5 * 60 * 1000; // 5 min per request
 
-const MODEL_REMAP = {
-    deepseek: {
-        'claude-opus-4-6':    'deepseek-v4-pro',
-        'claude-opus-4-7':    'deepseek-v4-pro',
-        'claude-sonnet-4-6':  'deepseek-v4-flash',
-        'claude-sonnet-4-5-20250929': 'deepseek-v4-flash',
-        'claude-haiku-4-5-20251001':  'deepseek-v4-flash',
-        // cross-backend: when switching from or/fw/al
-        'deepseek/deepseek-v4-pro':   'deepseek-v4-pro',
-        'deepseek/deepseek-v4-flash': 'deepseek-v4-flash',
-        'accounts/fireworks/models/deepseek-v4-pro': 'deepseek-v4-pro',
-        'qwen3.6-plus':               'deepseek-v4-pro',
-    },
-    openrouter: {
-        'claude-opus-4-6':    'deepseek/deepseek-v4-pro',
-        'claude-opus-4-7':    'deepseek/deepseek-v4-pro',
-        'claude-sonnet-4-6':  'deepseek/deepseek-v4-flash',
-        'claude-sonnet-4-5-20250929': 'deepseek/deepseek-v4-flash',
-        'claude-haiku-4-5-20251001':  'deepseek/deepseek-v4-flash',
-        // cross-backend: when switching from ds/fw/al
-        'deepseek-v4-pro':            'deepseek/deepseek-v4-pro',
-        'deepseek-v4-flash':          'deepseek/deepseek-v4-flash',
-        'accounts/fireworks/models/deepseek-v4-pro': 'deepseek/deepseek-v4-pro',
-        'qwen3.6-plus':               'deepseek/deepseek-v4-pro',
-    },
-    fireworks: {
-        'claude-opus-4-6':    'accounts/fireworks/models/deepseek-v4-pro',
-        'claude-opus-4-7':    'accounts/fireworks/models/deepseek-v4-pro',
-        'claude-sonnet-4-6':  'accounts/fireworks/models/deepseek-v4-pro',
-        'claude-sonnet-4-5-20250929': 'accounts/fireworks/models/deepseek-v4-pro',
-        'claude-haiku-4-5-20251001':  'accounts/fireworks/models/deepseek-v4-pro',
-        // cross-backend: when switching from ds/or/al
-        'deepseek-v4-pro':            'accounts/fireworks/models/deepseek-v4-pro',
-        'deepseek-v4-flash':          'accounts/fireworks/models/deepseek-v4-pro',
-        'deepseek/deepseek-v4-pro':   'accounts/fireworks/models/deepseek-v4-pro',
-        'deepseek/deepseek-v4-flash': 'accounts/fireworks/models/deepseek-v4-pro',
-        'qwen3.6-plus':               'accounts/fireworks/models/deepseek-v4-pro',
-    },
-    dashscope: {
-        'claude-opus-4-6':    'qwen3.6-plus',
-        'claude-opus-4-7':    'qwen3.6-plus',
-        'claude-sonnet-4-6':  'qwen3.6-plus',
-        'claude-sonnet-4-5-20250929': 'qwen3.6-plus',
-        'claude-haiku-4-5-20251001':  'qwen3.6-plus',
-        // cross-backend: when switching from ds/or/fw
-        'deepseek-v4-pro':            'qwen3.6-plus',
-        'deepseek-v4-flash':          'qwen3.6-plus',
-        'deepseek/deepseek-v4-pro':   'qwen3.6-plus',
-        'deepseek/deepseek-v4-flash': 'qwen3.6-plus',
-        'accounts/fireworks/models/deepseek-v4-pro': 'qwen3.6-plus',
-        'kimi-k2.6':               'qwen3.6-plus',
-    },
-    kimi: {
-        'claude-opus-4-6':    'kimi-k2.6',
-        'claude-opus-4-7':    'kimi-k2.6',
-        'claude-sonnet-4-6':  'kimi-k2.6',
-        'claude-sonnet-4-5-20250929': 'kimi-k2.6',
-        'claude-haiku-4-5-20251001':  'kimi-k2.6',
-        // cross-backend: when switching from ds/or/fw/al
-        'deepseek-v4-pro':            'kimi-k2.6',
-        'deepseek-v4-flash':          'kimi-k2.6',
-        'deepseek/deepseek-v4-pro':   'kimi-k2.6',
-        'deepseek/deepseek-v4-flash': 'kimi-k2.6',
-        'accounts/fireworks/models/deepseek-v4-pro': 'kimi-k2.6',
-        'qwen3.6-plus':               'kimi-k2.6',
-    },
-    mimo: {
-        'claude-opus-4-6':    'mimo-v2.5-pro',
-        'claude-opus-4-7':    'mimo-v2.5-pro',
-        'claude-sonnet-4-6':  'mimo-v2.5',
-        'claude-sonnet-4-5-20250929': 'mimo-v2.5',
-        'claude-haiku-4-5-20251001':  'mimo-v2.5',
-        // cross-backend: when switching from ds/or/fw/al/km/um
-        'deepseek-v4-pro':            'mimo-v2.5-pro',
-        'deepseek-v4-flash':          'mimo-v2.5',
-        'deepseek/deepseek-v4-pro':   'mimo-v2.5-pro',
-        'deepseek/deepseek-v4-flash': 'mimo-v2.5',
-        'accounts/fireworks/models/deepseek-v4-pro': 'mimo-v2.5-pro',
-        'qwen3.6-plus':               'mimo-v2.5-pro',
-        'kimi-k2.6':                  'mimo-v2.5-pro',
-        'kimi-k2.5':                  'mimo-v2.5',
-        'umans-coder':                'mimo-v2.5-pro',
-        'umans-kimi-k2.6':            'mimo-v2.5-pro',
-        'umans-flash':                'mimo-v2.5',
-        'umans-glm-5.1':              'mimo-v2.5-pro',
-        'umans-qwen3.6-35b-a3b':      'mimo-v2.5-pro',
-    },
-    umans: {
-        'claude-opus-4-6':    'umans-kimi-k2.6',
-        'claude-opus-4-7':    'umans-kimi-k2.6',
-        'claude-sonnet-4-6':  'umans-kimi-k2.6',
-        'claude-sonnet-4-5-20250929': 'umans-kimi-k2.6',
-        'claude-haiku-4-5-20251001':  'umans-kimi-k2.6',
-        // cross-backend: when switching from ds/or/fw/al/km/mm
-        'deepseek-v4-pro':            'umans-kimi-k2.6',
-        'deepseek-v4-flash':          'umans-kimi-k2.6',
-        'deepseek/deepseek-v4-pro':   'umans-kimi-k2.6',
-        'deepseek/deepseek-v4-flash': 'umans-kimi-k2.6',
-        'accounts/fireworks/models/deepseek-v4-pro': 'umans-kimi-k2.6',
-        'qwen3.6-plus':               'umans-kimi-k2.6',
-        'kimi-k2.6':                  'umans-kimi-k2.6',
-        'kimi-k2.5':                  'umans-kimi-k2.6',
-        'mimo-v2.5-pro':              'umans-kimi-k2.6',
-        'mimo-v2.5':                  'umans-kimi-k2.6',
-        'umans-coder':                'umans-kimi-k2.6',
-        'umans-flash':                'umans-kimi-k2.6',
-        'umans-glm-5.1':              'umans-kimi-k2.6',
-        'umans-qwen3.6-35b-a3b':      'umans-kimi-k2.6',
-    },
+// Each backend has exactly ONE target model. Whatever model the client sends,
+// we rewrite to this. Simple, predictable, no alias tables.
+const BACKEND_MODEL = {
+    deepseek:   'deepseek-v4-pro',
+    openrouter: 'deepseek/deepseek-v4-pro',
+    fireworks:  'accounts/fireworks/models/deepseek-v4-pro',
+    dashscope:  'qwen3.6-plus',
+    kimi:       'kimi-k2.6',
+    mimo:       'mimo-v2.5-pro',
+    umans:      'umans-kimi-k2.6',
 };
 
 const PRICING_PER_M = {
@@ -177,6 +78,21 @@ class UsageNormalizer extends Transform {
                     changed = true;
                 }
             }
+            // Convert reasoning_content (OpenAI format) to thinking blocks (Anthropic format)
+            if (d.type === 'content_block_start' && d.content_block) {
+                if (d.content_block.reasoning_content !== undefined) {
+                    d.content_block.type = 'thinking';
+                    d.content_block.thinking = d.content_block.reasoning_content;
+                    delete d.content_block.reasoning_content;
+                    changed = true;
+                }
+            }
+            if (d.type === 'content_block_delta' && d.delta?.reasoning_content !== undefined) {
+                d.delta.type = 'thinking_delta';
+                d.delta.thinking = d.delta.reasoning_content;
+                delete d.delta.reasoning_content;
+                changed = true;
+            }
             if (changed) return event.replace(m[1], () => JSON.stringify(d));
         } catch { /* not JSON, pass through */ }
         return event;
@@ -232,7 +148,7 @@ export function startModelProxy({ targetUrl, apiKey, startPort = 3200, backends,
                 allBackends[name] = {
                     target: new URL(cfg.url),
                     apiKey: cfg.apiKey,
-                    useBearer: cfg.url.includes('openrouter') || cfg.url.includes('fireworks') || cfg.url.includes('dashscope') || cfg.url.includes('moonshot'),
+                    useBearer: cfg.url.includes('openrouter') || cfg.url.includes('fireworks') || cfg.url.includes('dashscope') || cfg.url.includes('moonshot') || cfg.url.includes('umans'),
                 };
             }
         }
@@ -429,13 +345,13 @@ export function startModelProxy({ targetUrl, apiKey, startPort = 3200, backends,
                 let body = Buffer.concat(chunks);
 
                 // Remap Anthropic model names to backend-specific names
-                if (isModelCall && MODEL_REMAP[state.mode]) {
+                if (isModelCall && BACKEND_MODEL[state.mode]) {
                     try {
                         const parsed = JSON.parse(body);
-                        const mapped = MODEL_REMAP[state.mode][parsed.model];
-                        if (mapped) {
-                            console.log(`[MODEL-PROXY] #${reqId} model remap: ${parsed.model} → ${mapped}`);
-                            parsed.model = mapped;
+                        const target = BACKEND_MODEL[state.mode];
+                        if (parsed.model !== target) {
+                            console.log(`[MODEL-PROXY] #${reqId} model remap: ${parsed.model} → ${target}`);
+                            parsed.model = target;
                             body = Buffer.from(JSON.stringify(parsed));
                         }
                     } catch { /* not JSON or parse error, pass through */ }
@@ -459,12 +375,9 @@ export function startModelProxy({ targetUrl, apiKey, startPort = 3200, backends,
                     } catch { /* pass through */ }
                 }
                 // Thinking-capable backends: all non-Anthropic modes.
-                // DeepSeek V4 Pro, OpenRouter (DeepSeek), Fireworks (DeepSeek),
-                // DashScope (Qwen3.6), Kimi K2.6, and MiMo V2.5 all accept
-                // thinking blocks in the conversation history.
                 const thinkingCapable = [
                     'deepseek', 'openrouter', 'fireworks',
-                    'dashscope', 'kimi', 'mimo',
+                    'dashscope', 'kimi', 'mimo', 'umans',
                 ];
                 // umans is a gateway — thinking support not confirmed
                 const supportsThinking = thinkingCapable.includes(state.mode);

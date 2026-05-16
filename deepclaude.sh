@@ -52,6 +52,7 @@ while [[ $# -gt 0 ]]; do
         --list|-l)    ACTION="list"; shift ;;
         --port|-p)  SWITCH_PORT="$2"; shift 2 ;;
         --help|-h)    ACTION="help"; shift ;;
+        start|launch) shift ;;
         *)            break ;;
     esac
 done

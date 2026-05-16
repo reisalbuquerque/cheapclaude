@@ -14,9 +14,17 @@ const BACKEND_DEFS = {
 };
 
 // Legacy mode: start-proxy.js <targetUrl> <apiKey> [modeName] (used by deepclaude.sh/ps1)
-const targetUrl = process.argv[2] || process.env.CHEAPCLAUDE_TARGET_URL;
-const apiKey = process.argv[3] || process.env.CHEAPCLAUDE_API_KEY;
-const modeName = process.argv[4];  // optional: deepseek, openrouter, fireworks
+const rawTargetUrl = process.argv[2];
+const rawApiKey = process.argv[3];
+const rawMode = process.argv[4];
+const modeFlagIdx = process.argv.indexOf('--mode');
+const modeFlagArg = modeFlagIdx >= 0 ? process.argv[modeFlagIdx + 1] : undefined;
+
+const isStandalone = rawTargetUrl?.startsWith('--') || (!rawTargetUrl && !rawApiKey);
+const targetUrl = isStandalone ? undefined : (rawTargetUrl || process.env.CHEAPCLAUDE_TARGET_URL);
+const apiKey = isStandalone ? undefined : (rawApiKey || process.env.CHEAPCLAUDE_API_KEY);
+// Legacy positional mode (argv[4]) wins for legacy callers; --mode flag for standalone.
+const modeName = (!isStandalone && rawMode && !rawMode.startsWith('--')) ? rawMode : modeFlagArg;
 
 if (targetUrl && apiKey) {
     // Legacy single-backend mode
